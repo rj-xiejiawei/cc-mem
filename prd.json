@@ -1,0 +1,141 @@
+{
+  "project": "cc-mem",
+  "description": "Cross-session memory MCP server for AI coding assistants",
+  "stories": [
+    {
+      "id": "1",
+      "title": "Project scaffolding",
+      "priority": 1,
+      "passes": false,
+      "acceptance_criteria": [
+        "package.json exists with name=cc-mem, bin, type=module, scripts (build/test)",
+        "tsconfig.json exists with strict mode, ES2022, Node16 module resolution",
+        "Dependencies installed: sql.js, @modelcontextprotocol/sdk, uuid, typescript, vitest",
+        "npm run build succeeds with zero errors"
+      ]
+    },
+    {
+      "id": "2",
+      "title": "Database connection + migrations",
+      "priority": 2,
+      "passes": false,
+      "acceptance_criteria": [
+        "src/db/database.ts: Database class with init/persist/close, handles corrupted files",
+        "src/db/migrations.ts: runMigrations creates sessions, observations, observations_fts (with triggers), user_prompts, schema_versions tables",
+        "All indexes created: idx_observations_project, idx_observations_session, idx_observations_created, idx_observations_type, idx_observations_status, idx_observations_hash, idx_sessions_project",
+        "Tests pass: __tests__/db/database.test.ts"
+      ]
+    },
+    {
+      "id": "3",
+      "title": "Sessions CRUD",
+      "priority": 3,
+      "passes": false,
+      "acceptance_criteria": [
+        "src/db/sessions.ts: SessionsRepo with create/getById/update/getLatestByProject",
+        "Tests pass: __tests__/db/sessions.test.ts"
+      ]
+    },
+    {
+      "id": "4",
+      "title": "Hash utility + Observations CRUD + dedup",
+      "priority": 4,
+      "passes": false,
+      "acceptance_criteria": [
+        "src/utils/hash.ts: contentHash returns consistent SHA256 hex",
+        "src/db/observations.ts: ObservationsRepo with create (returns 'created'|'duplicate')/getById/listByProject/listBySession/updateStatus/delete/listProjects",
+        "Dedup: same content_hash + session_id + within 30s → returns 'duplicate'",
+        "Tests pass: __tests__/utils/hash.test.ts, __tests__/db/observations.test.ts"
+      ]
+    },
+    {
+      "id": "5",
+      "title": "FTS5 search",
+      "priority": 5,
+      "passes": false,
+      "acceptance_criteria": [
+        "src/db/search.ts: SearchRepo.search(query, options) with project/type/status/since filters",
+        "Search uses JOIN on observations_fts and observations via rowid",
+        "Tests pass: __tests__/db/search.test.ts"
+      ]
+    },
+    {
+      "id": "6",
+      "title": "Project name detection",
+      "priority": 6,
+      "passes": false,
+      "acceptance_criteria": [
+        "src/utils/project.ts: detectProject(cwd, explicit?) returns git repo folder name or basename(cwd)",
+        "Tests pass: __tests__/utils/project.test.ts"
+      ]
+    },
+    {
+      "id": "7",
+      "title": "LLMProvider interface + ZhipuProvider",
+      "priority": 7,
+      "passes": false,
+      "acceptance_criteria": [
+        "src/llm/provider.ts: LLMProvider interface with extractObservation/summarizeSession",
+        "src/llm/providers/zhipu.ts: ZhipuProvider implements LLMProvider with API call, JSON parsing, markdown strip, cooldown",
+        "parseResponse handles: valid JSON, markdown-wrapped JSON, unparseable text",
+        "Consecutive 3 failures → 5-minute cooldown",
+        "Tests pass: __tests__/llm/zhipu.test.ts"
+      ]
+    },
+    {
+      "id": "8",
+      "title": "Context formatting utility",
+      "priority": 8,
+      "passes": false,
+      "acceptance_criteria": [
+        "src/utils/format.ts: formatContext produces compact markdown with type icons, timestamps, stats",
+        "Tests pass: __tests__/utils/format.test.ts"
+      ]
+    },
+    {
+      "id": "9",
+      "title": "MCP server + all tools + resources + prompts",
+      "priority": 9,
+      "passes": false,
+      "acceptance_criteria": [
+        "src/server.ts: createServer wires up McpServer with 7 tools + 2 resources + 1 prompt",
+        "7 tools registered: add_observation, search, get_context, summarize, review_observation, list_projects, delete_observation",
+        "2 resources: cc-mem://context/{project}, cc-mem://session/{session_id}",
+        "1 prompt: cc-mem://prompts/usage-guide",
+        "npm run build succeeds with zero errors"
+      ]
+    },
+    {
+      "id": "10",
+      "title": "CLI entry point",
+      "priority": 10,
+      "passes": false,
+      "acceptance_criteria": [
+        "src/index.ts: reads env vars, inits Database, creates ZhipuProvider, starts stdio transport",
+        "Supports CC_MEM_DB_PATH, CC_MEM_ZHIPU_API_KEY, CC_MEM_ZHIPU_MODEL env vars",
+        "npm run build succeeds"
+      ]
+    },
+    {
+      "id": "11",
+      "title": "Integration test",
+      "priority": 11,
+      "passes": false,
+      "acceptance_criteria": [
+        "__tests__/tools/integration.test.ts exercises: create session → add observation → search → get_context → summarize → list_projects → delete",
+        "Full test suite passes: npm test"
+      ]
+    },
+    {
+      "id": "12",
+      "title": "README + gitignore + final polish",
+      "priority": 12,
+      "passes": false,
+      "acceptance_criteria": [
+        "README.md covers: what it is, install (npm i -g), config (env vars), MCP settings.json example, tools list",
+        ".gitignore covers: node_modules, dist, *.db, *.db.bak",
+        "npm run build && npm test both pass"
+      ]
+    }
+  ]
+}

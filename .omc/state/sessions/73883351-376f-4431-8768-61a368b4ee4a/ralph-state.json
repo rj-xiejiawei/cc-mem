@@ -1,0 +1,12 @@
+{
+  "active": true,
+  "iteration": 1,
+  "max_iterations": 100,
+  "started_at": "2026-04-16T16:28:49.952Z",
+  "prompt": "阅读： docs/superpowers/specs/2026-04-17-cc-mem-design.md。  采用omc 去写方案，去执行,要用 ralph + team的能力， 当然要因为是长时间执行 所以一定要遵守 Spec ， omc有专门的任务和进度管理的做法",
+  "session_id": "73883351-376f-4431-8768-61a368b4ee4a",
+  "project_path": "/Users/xielaoban/Documents/GitHub/cc-mem",
+  "linked_ultrawork": true,
+  "awaiting_confirmation": true,
+  "last_checked_at": "2026-04-16T16:28:49.953Z"
+}

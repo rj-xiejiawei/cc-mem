@@ -1,0 +1,15 @@
+2026-04-16T16:27:42.341Z | INFO | Starting MCP MySQL server from: /Users/xielaoban/.npm/_npx/080bc9f59514dad9/node_modules/@liangshanli/mcp-server-mysql/src/server-final.js
+2026-04-16T16:27:42.344Z | INFO | Starting MCP MySQL server with environment: | {"MYSQL_HOST":"127.0.0.1","MYSQL_PORT":"3306","MYSQL_USER":"root","MYSQL_DATABASE":"zaoxs","READONLY":"false","ALLOW_DDL":"true","ALLOW_DROP":"false","ALLOW_DELETE":"false","TOOL_PREFIX":"projA","PROJECT_NAME":"MyProject","MCP_LOG_DIR":"./.setting.projA","MCP_DDL_LOG_FILE":"ddl.sql"}
+2026-04-16T16:27:42.346Z | INFO | MCP MySQL server process started with PID: 30062
+2026-04-16T16:27:42.347Z | INFO | Signal handlers registered for SIGINT and SIGTERM
+2026-04-16T16:27:42.347Z | INFO | Press Ctrl+C to gracefully shutdown the server
+2026-04-16T16:27:42.476Z | INFO | Starting MCP MySQL server from: /Users/xielaoban/.npm/_npx/080bc9f59514dad9/node_modules/@liangshanli/mcp-server-mysql/src/server-final.js
+2026-04-16T16:27:42.480Z | INFO | Starting MCP MySQL server with environment: | {"MYSQL_HOST":"118.178.179.162","MYSQL_PORT":"3306","MYSQL_USER":"zaoxs","MYSQL_DATABASE":"zaoxs","READONLY":"false","ALLOW_DDL":"true","ALLOW_DROP":"false","ALLOW_DELETE":"false","TOOL_PREFIX":"projA","PROJECT_NAME":"MyProject","MCP_LOG_DIR":"./.setting.projA","MCP_DDL_LOG_FILE":"ddl.sql"}
+2026-04-16T16:27:42.482Z | INFO | MCP MySQL server process started with PID: 30103
+2026-04-16T16:27:42.483Z | INFO | Signal handlers registered for SIGINT and SIGTERM
+2026-04-16T16:27:42.483Z | INFO | Press Ctrl+C to gracefully shutdown the server
+2026-04-16T16:27:43.241Z | INFO | Starting MCP MySQL server from: /Users/xielaoban/.npm/_npx/080bc9f59514dad9/node_modules/@liangshanli/mcp-server-mysql/src/server-final.js
+2026-04-16T16:27:43.243Z | INFO | Starting MCP MySQL server with environment: | {"MYSQL_HOST":"120.79.1.157","MYSQL_PORT":"3306","MYSQL_USER":"zaoxs","MYSQL_DATABASE":"zaoxs","READONLY":"false","ALLOW_DDL":"true","ALLOW_DROP":"false","ALLOW_DELETE":"false","TOOL_PREFIX":"projA","PROJECT_NAME":"MyProject","MCP_LOG_DIR":"./.setting.projA","MCP_DDL_LOG_FILE":"ddl.sql"}
+2026-04-16T16:27:43.245Z | INFO | MCP MySQL server process started with PID: 30326
+2026-04-16T16:27:43.245Z | INFO | Signal handlers registered for SIGINT and SIGTERM
+2026-04-16T16:27:43.245Z | INFO | Press Ctrl+C to gracefully shutdown the server
