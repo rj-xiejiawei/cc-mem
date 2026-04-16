@@ -21,15 +21,32 @@ export class Database {
       try {
         this.db = new SQL.Database(buffer)
       } catch {
-        fs.renameSync(this.dbPath, this.dbPath + '.bak')
+        // Backup corrupted file and create new database
+        try {
+          fs.renameSync(this.dbPath, this.dbPath + '.bak')
+        } catch {
+          // Ignore rename errors
+        }
         this.db = new SQL.Database()
       }
     } else {
       this.db = new SQL.Database()
     }
 
-    runMigrations(this.db)
-    this.persist()
+    try {
+      runMigrations(this.db)
+      this.persist()
+    } catch (e) {
+      // If migrations fail, database might be corrupted
+      try {
+        fs.renameSync(this.dbPath, this.dbPath + '.bak')
+      } catch {
+        // Ignore rename errors
+      }
+      this.db = new SQL.Database()
+      runMigrations(this.db)
+      this.persist()
+    }
   }
 
   getDb(): SqlJsDatabase {
@@ -39,8 +56,15 @@ export class Database {
 
   persist(): void {
     if (!this.db) return
-    const data = this.db.export()
-    fs.writeFileSync(this.dbPath, Buffer.from(data))
+    try {
+      const data = this.db.export()
+      fs.writeFileSync(this.dbPath, Buffer.from(data))
+    } catch (e) {
+      // Handle case where db is closed during persist
+      if (!String(e).includes('Database is closed')) {
+        throw e
+      }
+    }
   }
 
   async close(): Promise<void> {

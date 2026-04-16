@@ -15,21 +15,48 @@ export interface SearchResult extends Observation {
 
 export class SearchRepo {
   private db: Database
+  private fts5Available: boolean | null = null
 
   constructor(db: Database) {
     this.db = db
   }
 
+  private isFts5Available(): boolean {
+    if (this.fts5Available !== null) return this.fts5Available
+    try {
+      const result = this.db.getDb().exec(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='observations_fts'"
+      )
+      this.fts5Available = result[0]?.values.length > 0
+    } catch {
+      this.fts5Available = false
+    }
+    return this.fts5Available
+  }
+
   search(query: string, options: SearchOptions = {}): SearchResult[] {
     const { limit = 10, type, project, status, since } = options
 
-    let sql = `
-      SELECT o.*, fts.rank
-      FROM observations_fts fts
-      JOIN observations o ON o.rowid = fts.rowid
-      WHERE observations_fts MATCH ?
-    `
-    const params: (string | number)[] = [query]
+    let sql: string
+    const params: (string | number)[] = []
+
+    if (this.isFts5Available()) {
+      sql = `
+        SELECT o.*, fts.rank
+        FROM observations_fts fts
+        JOIN observations o ON o.rowid = fts.rowid
+        WHERE observations_fts MATCH ?
+      `
+      params.push(query)
+    } else {
+      sql = `
+        SELECT o.*, 0 AS rank
+        FROM observations o
+        WHERE (o.title LIKE ? OR o.narrative LIKE ? OR o.facts LIKE ? OR o.concepts LIKE ?)
+      `
+      const likeQuery = `%${query}%`
+      params.push(likeQuery, likeQuery, likeQuery, likeQuery)
+    }
 
     if (project) {
       sql += ' AND o.project = ?'
@@ -48,7 +75,7 @@ export class SearchRepo {
       params.push(since)
     }
 
-    sql += ' ORDER BY fts.rank LIMIT ?'
+    sql += ' ORDER BY rank LIMIT ?'
     params.push(limit)
 
     const result = this.db.getDb().exec(sql, params)

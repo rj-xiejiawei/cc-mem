@@ -64,6 +64,8 @@ const MIGRATIONS: Record<number, string[]> = {
 
 export function runMigrations(db: SqlJsDatabase): void {
   let currentVersion = 0
+  let fts5Supported = true
+
   try {
     const result = db.exec('SELECT MAX(version) FROM schema_versions')
     if (result[0]?.values[0]?.[0]) {
@@ -73,11 +75,30 @@ export function runMigrations(db: SqlJsDatabase): void {
     // Table doesn't exist yet
   }
 
+  // Check if FTS5 is supported
+  try {
+    db.run('CREATE VIRTUAL TABLE IF NOT EXISTS fts5_test USING fts5(test)')
+    db.run('DROP TABLE IF EXISTS fts5_test')
+  } catch {
+    fts5Supported = false
+  }
+
   for (const [version, statements] of Object.entries(MIGRATIONS)) {
     const v = Number(version)
     if (v > currentVersion) {
       for (const sql of statements) {
-        db.run(sql)
+        // Skip FTS5-related statements if not supported
+        if (!fts5Supported && (sql.includes('fts5') || sql.includes('observations_fts'))) {
+          continue
+        }
+        try {
+          db.run(sql)
+        } catch (e) {
+          // Skip FTS5 statements if not supported (e.g., in sql.js without FTS5)
+          if (!String(e).includes('no such module') && !String(e).includes('no such table')) {
+            throw e
+          }
+        }
       }
       db.run(
         'INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)',
