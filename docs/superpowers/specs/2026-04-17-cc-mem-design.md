@@ -62,58 +62,88 @@ cc-mem is an open-source, MCP-first memory system that helps AI coding assistant
 - **No IDE hooks**: All capabilities via MCP. Claude Code plugin adapter is a future optional layer.
 - **sql.js over better-sqlite3**: Avoids native addon compilation issues across platforms. Pure WASM, zero native dependencies.
 - **LLMProvider interface**: Zhipu is default, but interface is defined from day one for extensibility.
+- **ID format**: All IDs are UUID v7 (time-ordered, sortable). Use the `uuid` npm package (v7+).
+- **Timestamps**: All datetime fields use ISO 8601 UTC format (e.g. `2026-04-17T10:30:00Z`).
 
 ## 3. Database Schema
 
 ```sql
+-- ID format: UUID v7 (time-ordered) for all TEXT PRIMARY KEY fields
+-- Datetime format: ISO 8601 UTC string (e.g. '2026-04-17T10:30:00Z')
+
 -- Session tracking
 CREATE TABLE sessions (
-  id TEXT PRIMARY KEY,
-  project TEXT,
-  started_at TEXT,
-  ended_at TEXT,
+  id TEXT PRIMARY KEY,               -- UUID v7
+  project TEXT NOT NULL,             -- Project name (see "Project Identification" below)
+  project_path TEXT,                 -- Full path for disambiguation
+  started_at TEXT,                   -- ISO 8601 UTC
+  ended_at TEXT,                     -- ISO 8601 UTC
   summary TEXT,                      -- JSON from LLM summarization
   discovery_tokens INTEGER DEFAULT 0 -- Token cost of this session
 );
 
 -- Core observations
 CREATE TABLE observations (
-  id TEXT PRIMARY KEY,
-  session_id TEXT REFERENCES sessions(id),
-  type TEXT,                         -- bugfix | feature | refactor | change | discovery | decision
+  id TEXT PRIMARY KEY,               -- UUID v7
+  session_id TEXT NOT NULL REFERENCES sessions(id),
+  type TEXT NOT NULL,                -- bugfix | feature | refactor | change | discovery | decision
   title TEXT NOT NULL,               -- One-line title (5-15 chars Chinese)
-  narrative TEXT,                     -- Detailed description (2-5 sentences)
+  narrative TEXT,                    -- Detailed description (2-5 sentences)
   facts TEXT,                        -- JSON array, key facts
-  concepts TEXT,                     -- JSON array, tags (how-it-works, why-it-exists, etc.)
+  concepts TEXT,                     -- JSON array, tags (see extraction prompt)
   files_read TEXT,                   -- JSON array
   files_modified TEXT,               -- JSON array
-  project TEXT,                      -- Project identifier
-  content_hash TEXT,                 -- SHA256 dedup
+  project TEXT NOT NULL,             -- Project name (same as sessions.project)
+  content_hash TEXT,                 -- SHA256(title + narrative) for dedup
   prompt_number INTEGER,             -- Which turn generated this
-  status TEXT DEFAULT 'confirmed',   -- pending | confirmed | deprecated
-  reviewed_at TEXT,                  -- When reviewed
-  created_at TEXT,
+  status TEXT NOT NULL DEFAULT 'confirmed',  -- pending | confirmed | deprecated
+  reviewed_at TEXT,                  -- ISO 8601 UTC, null if not reviewed
+  created_at TEXT NOT NULL,          -- ISO 8601 UTC
   discovery_tokens INTEGER DEFAULT 0
 );
 
--- Full-text search
+-- Indexes for common query patterns
+CREATE INDEX idx_observations_project ON observations(project);
+CREATE INDEX idx_observations_session ON observations(session_id);
+CREATE INDEX idx_observations_created ON observations(created_at);
+CREATE INDEX idx_observations_type ON observations(type);
+CREATE INDEX idx_observations_status ON observations(status);
+CREATE INDEX idx_observations_hash ON observations(content_hash);
+CREATE INDEX idx_sessions_project ON sessions(project);
+
+-- Full-text search (standalone table, synced via triggers)
 CREATE VIRTUAL TABLE observations_fts USING fts5(
-  title, narrative, facts, concepts,
-  content='observations', content_rowid='rowid'
+  title, narrative, facts, concepts
 );
+
+-- Triggers to keep FTS5 in sync
+CREATE TRIGGER observations_fts_insert AFTER INSERT ON observations BEGIN
+  INSERT INTO observations_fts(rowid, title, narrative, facts, concepts)
+  VALUES (NEW.rowid, NEW.title, NEW.narrative, NEW.facts, NEW.concepts);
+END;
+
+CREATE TRIGGER observations_fts_update AFTER UPDATE ON observations BEGIN
+  DELETE FROM observations_fts WHERE rowid = OLD.rowid;
+  INSERT INTO observations_fts(rowid, title, narrative, facts, concepts)
+  VALUES (NEW.rowid, NEW.title, NEW.narrative, NEW.facts, NEW.concepts);
+END;
+
+CREATE TRIGGER observations_fts_delete AFTER DELETE ON observations BEGIN
+  DELETE FROM observations_fts WHERE rowid = OLD.rowid;
+END;
 
 -- User prompts for search
 CREATE TABLE user_prompts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id TEXT,
+  session_id TEXT REFERENCES sessions(id),
   content TEXT,
-  created_at TEXT
+  created_at TEXT NOT NULL           -- ISO 8601 UTC
 );
 
 -- Schema versioning
 CREATE TABLE schema_versions (
   version INTEGER PRIMARY KEY,
-  applied_at TEXT
+  applied_at TEXT NOT NULL           -- ISO 8601 UTC
 );
 
 -- [Phase 2] Knowledge table — extracted structured knowledge
@@ -137,11 +167,20 @@ CREATE TABLE schema_versions (
 -- );
 ```
 
+### Project Identification
+
+Project name is derived deterministically:
+1. If inside a git repo: use the repo root folder name (e.g. `/Users/xielaoban/Documents/GitHub/cc-mem` → `cc-mem`)
+2. If not in a git repo: use `basename(cwd)`
+3. Full path is stored in `sessions.project_path` for disambiguation (two folders named `backend` in different paths won't collide)
+4. When `project` parameter is explicitly provided to a tool, use that value directly
+
 ### Deduplication
 
 - `content_hash` = SHA256(title + narrative)
-- Within a single session, only the first observation with a given hash is kept
-- 30-second sliding window for duplicate detection
+- Before inserting, check if an observation with the same `content_hash` exists in the current session AND was created within the last 30 seconds: `WHERE content_hash = ? AND session_id = ? AND created_at > datetime('now', '-30 seconds')`
+- If duplicate found: skip insertion, return existing observation ID
+- Cross-session duplicates are allowed (same discovery in different sessions is valid)
 
 ## 4. MCP Interface
 
@@ -158,7 +197,7 @@ add_observation({
   files_read?: string[],
   files_modified?: string[],
   raw_context?: string,    // If provided, LLM extracts all fields automatically
-  project?: string,        // Defaults to current working directory project name
+  project?: string,        // Defaults to git repo folder name or basename(cwd)
   status?: string          // Defaults to 'confirmed', can be 'pending'
 })
 // Returns: { id, type, title }
@@ -178,7 +217,7 @@ search({
 
 // 3. Get context for a project
 get_context({
-  project?: string,        // Defaults to cwd project
+  project?: string,        // Defaults to git repo folder name or basename(cwd)
   limit?: number           // Default 20
 })
 // Returns: { observations: [...], last_summary: {...}, stats: {...} }
@@ -436,15 +475,20 @@ Data directory: `~/.cc-mem/` (isolated from plugin system). Backup = copy the si
 - **Principle: never block AI assistant's normal operation**
 
 ### Database
-- sql.js loaded from npm package (bundled WASM)
-- WAL mode equivalent via sql.js's built-in concurrency handling
-- Auto-run migrations on startup
+- sql.js loaded from npm package (bundled WASM binary)
+- sql.js is single-threaded and runs in-memory, writing to disk on each write operation. Concurrency is not a concern because MCP servers serve one client at a time over stdio.
+- No WAL mode (sql.js does not support it). Write operations are: serialize to disk immediately after each write.
+- Auto-run migrations on startup, tracked via `schema_versions` table
 - If DB file corrupted: rename to `.bak`, create fresh DB, log warning
+- If WASM binary fails to load: log error and exit with clear message. sql.js IS the WASM — there is no fallback without it.
 
-### Duplicate Detection
-- SHA256(title + narrative) as content_hash
-- Within one session, same hash → skip
-- 30-second sliding window
+### LLM Cooldown State
+- Cooldown state is in-memory only, resets on server restart
+- Tracked via a simple counter + timestamp in the LLMProvider instance
+
+### Token Counting
+- Token count extracted from Zhipu API response (`usage.total_tokens`)
+- If API doesn't return usage field, estimate: 1 token ≈ 2 Chinese characters
 
 ### Performance Targets
 - MCP server startup: < 2s
@@ -453,9 +497,10 @@ Data directory: `~/.cc-mem/` (isolated from plugin system). Backup = copy the si
 - `add_observation` (with LLM): < 15s
 - Memory usage: < 50MB
 
-### sql.js Fallback
-- If WASM loading fails (rare): operate in memory-only mode, log warning, don't crash
-- Data won't persist but system stays functional
+### API Key Validation
+- `CC_MEM_ZHIPU_API_KEY` is validated on first LLM call (not at startup)
+- If missing when LLM is needed: return error message in tool response, don't crash
+- System works fully without API key if only using structured `add_observation` (no `raw_context`)
 
 ## 9. Roadmap
 
