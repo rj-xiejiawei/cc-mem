@@ -8,6 +8,9 @@ import { summarize, summarizeSchema } from './tools/summarize.js'
 import { reviewObservation, reviewObservationSchema } from './tools/review-observation.js'
 import { listProjects } from './tools/list-projects.js'
 import { deleteObservation, deleteObservationSchema } from './tools/delete-observation.js'
+import { extractKnowledge, extractKnowledgeSchema } from './tools/extract-knowledge.js'
+import { queryKnowledge, queryKnowledgeSchema } from './tools/query-knowledge.js'
+import { deprecateKnowledge, deprecateKnowledgeSchema } from './tools/deprecate-knowledge.js'
 import { USAGE_GUIDE } from './prompts/usage-guide.js'
 
 interface CreateServerInput {
@@ -18,7 +21,7 @@ interface CreateServerInput {
 export function createServer({ db, llm }: CreateServerInput): McpServer {
   const server = new McpServer({
     name: 'cc-mem',
-    version: '0.1.0',
+    version: '0.2.0',
   })
 
   const cwd = process.cwd()
@@ -54,9 +57,9 @@ export function createServer({ db, llm }: CreateServerInput): McpServer {
 
   server.tool(
     'review_observation',
-    'Review a pending observation: confirm, reject (delete), or deprecate.',
+    'Review a pending observation: confirm, reject (delete), deprecate, or promote to knowledge.',
     reviewObservationSchema.shape,
-    async (input) => reviewObservation(db, input)
+    async (input) => reviewObservation(db, llm, input)
   )
 
   server.tool(
@@ -71,6 +74,27 @@ export function createServer({ db, llm }: CreateServerInput): McpServer {
     'Delete an observation by ID.',
     deleteObservationSchema.shape,
     async (input) => deleteObservation(db, input)
+  )
+
+  server.tool(
+    'extract_knowledge',
+    'Extract knowledge from an observation using LLM with semantic dedup.',
+    extractKnowledgeSchema.shape,
+    async (input) => extractKnowledge(db, llm, input)
+  )
+
+  server.tool(
+    'query_knowledge',
+    'Query or search the knowledge base by project, kind, entity, or keyword.',
+    queryKnowledgeSchema.shape,
+    async (input) => queryKnowledge(db, input)
+  )
+
+  server.tool(
+    'deprecate_knowledge',
+    'Mark a knowledge entry as deprecated.',
+    deprecateKnowledgeSchema.shape,
+    async (input) => deprecateKnowledge(db, input)
   )
 
   // Resources
@@ -91,6 +115,52 @@ export function createServer({ db, llm }: CreateServerInput): McpServer {
         output += '\n\n---\n\nLast session summary:\n' + lastSession.summary
       }
       return { contents: [{ uri: uri.toString(), text: output }] }
+    }
+  )
+
+  server.resource(
+    'cc-mem://knowledge/{project}',
+    'Active knowledge for a project, grouped by kind',
+    async (uri) => {
+      const { KnowledgeRepo } = await import('./db/knowledge.js')
+      const project = decodeURIComponent(uri.pathname.replace(/^\//, ''))
+      const knowledgeRepo = new KnowledgeRepo(db)
+      const entries = knowledgeRepo.listByProject(project, { status: 'active' })
+
+      if (entries.length === 0) {
+        return {
+          contents: [{
+            uri: uri.toString(),
+            text: `[cc-mem] No active knowledge for ${project}`,
+          }],
+        }
+      }
+
+      // Group by kind
+      const grouped: Record<string, typeof entries> = {}
+      for (const entry of entries) {
+        if (!grouped[entry.kind]) grouped[entry.kind] = []
+        grouped[entry.kind].push(entry)
+      }
+
+      const kindLabels: Record<string, string> = {
+        rule: 'Rules',
+        adr: 'ADR',
+        constraint: 'Constraints',
+        procedure: 'Procedures',
+        pattern: 'Patterns',
+      }
+
+      let output = `[cc-mem] Knowledge for ${project} (${entries.length} entries)\n\n`
+      for (const [kind, items] of Object.entries(grouped)) {
+        output += `## ${kindLabels[kind] || kind}\n`
+        for (const item of items) {
+          output += `• ${item.entity}: ${item.summary}\n`
+        }
+        output += '\n'
+      }
+
+      return { contents: [{ uri: uri.toString(), text: output.trimEnd() }] }
     }
   )
 

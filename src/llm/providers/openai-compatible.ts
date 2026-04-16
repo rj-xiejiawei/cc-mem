@@ -62,25 +62,23 @@ const KNOWLEDGE_EXTRACTION_SYSTEM_PROMPT = `你是一个知识提取器。根据
 {"action":"skip","reason":"..."}
 {"action":"duplicate","existing_id":"..."}`
 
-export class ZhipuProvider implements LLMProvider {
+export class OpenAICompatibleProvider implements LLMProvider {
+  private baseURL: string
   private apiKey: string
   private model: string
-  private baseUrl: string
   private timeout: number
   private consecutiveFailures = 0
   private cooldownUntil = 0
 
   constructor(config: {
+    baseURL: string
     apiKey: string
     model: string
-    baseUrl?: string
     timeout?: number
   }) {
+    this.baseURL = config.baseURL
     this.apiKey = config.apiKey
     this.model = config.model
-    this.baseUrl =
-      config.baseUrl ||
-      'https://open.bigmodel.cn/api/paas/v4/chat/completions'
     this.timeout = config.timeout ?? 10_000
   }
 
@@ -153,11 +151,16 @@ export class ZhipuProvider implements LLMProvider {
       throw new Error('LLM in cooldown')
     }
 
+    if (!this.apiKey) {
+      throw new Error(`LLM API key not configured. Set CC_MEM_LLM_API_KEY for provider 'openai-compatible'.`)
+    }
+
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), this.timeout)
 
     try {
-      const res = await fetch(this.baseUrl, {
+      const url = `${this.baseURL.replace(/\/$/, '')}/chat/completions`
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

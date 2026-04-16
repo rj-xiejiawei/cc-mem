@@ -60,6 +60,38 @@ const MIGRATIONS: Record<number, string[]> = {
       applied_at TEXT NOT NULL
     )`,
   ],
+  2: [
+    `PRAGMA foreign_keys = ON`,
+    `CREATE TABLE knowledge (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      entity TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      detail TEXT,
+      source_observation_id TEXT REFERENCES observations(id) ON DELETE SET NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      project TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX idx_knowledge_kind ON knowledge(kind)`,
+    `CREATE INDEX idx_knowledge_entity ON knowledge(entity)`,
+    `CREATE INDEX idx_knowledge_project ON knowledge(project)`,
+    `CREATE INDEX idx_knowledge_status ON knowledge(status)`,
+    `CREATE INDEX idx_knowledge_source_obs ON knowledge(source_observation_id)`,
+    `CREATE VIRTUAL TABLE knowledge_fts USING fts5(summary, detail, kind, entity)`,
+    `CREATE TRIGGER knowledge_fts_insert AFTER INSERT ON knowledge BEGIN
+      INSERT INTO knowledge_fts(rowid, summary, detail, kind, entity)
+      VALUES (NEW.rowid, NEW.summary, NEW.detail, NEW.kind, NEW.entity);
+    END`,
+    `CREATE TRIGGER knowledge_fts_update AFTER UPDATE ON knowledge BEGIN
+      DELETE FROM knowledge_fts WHERE rowid = OLD.rowid;
+      INSERT INTO knowledge_fts(rowid, summary, detail, kind, entity)
+      VALUES (NEW.rowid, NEW.summary, NEW.detail, NEW.kind, NEW.entity);
+    END`,
+    `CREATE TRIGGER knowledge_fts_delete AFTER DELETE ON knowledge BEGIN
+      DELETE FROM knowledge_fts WHERE rowid = OLD.rowid;
+    END`,
+  ],
 }
 
 export function runMigrations(db: SqlJsDatabase): void {
@@ -88,7 +120,7 @@ export function runMigrations(db: SqlJsDatabase): void {
     if (v > currentVersion) {
       for (const sql of statements) {
         // Skip FTS5-related statements if not supported
-        if (!fts5Supported && (sql.includes('fts5') || sql.includes('observations_fts'))) {
+        if (!fts5Supported && (sql.includes('fts5') || sql.includes('observations_fts') || sql.includes('knowledge_fts'))) {
           continue
         }
         try {
