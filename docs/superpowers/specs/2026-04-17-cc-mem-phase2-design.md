@@ -60,6 +60,11 @@ CREATE TRIGGER knowledge_fts_insert AFTER INSERT ON knowledge BEGIN
   INSERT INTO knowledge_fts(rowid, summary, detail, kind, entity)
   VALUES (NEW.rowid, NEW.summary, NEW.detail, NEW.kind, NEW.entity);
 END;
+CREATE TRIGGER knowledge_fts_update AFTER UPDATE ON knowledge BEGIN
+  DELETE FROM knowledge_fts WHERE rowid = OLD.rowid;
+  INSERT INTO knowledge_fts(rowid, summary, detail, kind, entity)
+  VALUES (NEW.rowid, NEW.summary, NEW.detail, NEW.kind, NEW.entity);
+END;
 CREATE TRIGGER knowledge_fts_delete AFTER DELETE ON knowledge BEGIN
   DELETE FROM knowledge_fts WHERE rowid = OLD.rowid;
 END;
@@ -107,7 +112,7 @@ class KnowledgeRepo {
   getById(id: string): Knowledge | undefined
   listByProject(project: string, options?: { kind?, entity?, status?, limit? }): Knowledge[]
   listBySourceObservation(observationId: string): Knowledge[]
-  updateStatus(id: string, status: 'active' | 'deprecated'): void
+  updateStatus(id: string, status: 'active' | 'deprecated'): void  // Status only, not content
   delete(id: string): void
 }
 ```
@@ -179,12 +184,23 @@ review_observation({
 })
 ```
 
+**Action behaviors:**
+| Action | Behavior |
+|--------|----------|
+| `confirm` | Set status to `confirmed` (Phase 1) |
+| `reject` | Delete the observation (Phase 1) |
+| `deprecate` | Set status to `deprecated` (Phase 1) |
+| `promote` | Extract knowledge from observation, set status to `promoted` (Phase 2) |
+```
+
 **Promote flow:**
 1. Read observation content
 2. Query existing knowledge for dedup context
 3. Use LLM to transform observation into knowledge format. If `kind` and `entity` are provided, they are used as hints to guide the LLM — the LLM may override them if the observation content suggests a different classification.
 4. Write to knowledge table with `source_observation_id`
 5. Update observation status to `promoted`
+
+**Idempotency**: If the observation is already `promoted`, return the existing knowledge entry (found via `source_observation_id` lookup). No duplicate knowledge is created.
 
 **Traceability**: `KnowledgeRepo.listBySourceObservation(observationId)` returns all knowledge derived from a given observation.
 
