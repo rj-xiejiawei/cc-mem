@@ -1,14 +1,12 @@
 {
-  "name": "cc-mem",
-  "version": "0.1.0",
+  "name": "@krab-jw/cc-mem",
+  "version": "0.1.1",
   "description": "Cross-session memory MCP server for AI coding assistants",
   "type": "module",
-  "bin": {
-    "cc-mem": "./dist/index.js"
-  },
+  "bin": "./dist/index.js",
   "main": "./dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/index.js",
     "dev": "tsc --watch",
     "test": "node --experimental-vm-modules node_modules/.bin/vitest run",
     "test:watch": "node --experimental-vm-modules node_modules/.bin/vitest",
@@ -21,6 +19,11 @@
     "claude-code"
   ],
   "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "sql.js": "^1.14.1",
