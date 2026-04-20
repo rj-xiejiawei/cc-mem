@@ -5,6 +5,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![npm version](https://badge.fury.io/js/@krab-jw%2Fcc-mem.svg)](https://www.npmjs.com/package/@krab-jw/cc-mem)
 
+**[中文文档](how-to-use.md)**
+
 **cc-mem** is an open-source MCP (Model Context Protocol) server that helps AI coding assistants like Claude Code, Cursor, and Copilot remember important information across sessions. Unlike claude-mem which tightly couples to Claude Code hooks, cc-mem exposes all capabilities through standard MCP tools and resources — any MCP-compatible client can use it.
 
 ## Features
@@ -334,11 +336,11 @@ MIT License — see LICENSE file for details.
 - ✅ npm package distribution
 
 ### Phase 2 — Knowledge Layer
-- ⏳ `knowledge` table (Decision, Constraint, Fact, Procedure, Pattern)
-- ⏳ LLM-powered knowledge extraction from observations
-- ⏳ Additional LLM providers (OpenAI-compatible, DeepSeek)
-- ⏳ Claude Code plugin adapter
-- ⏳ Vector index interface (sqlite-vec)
+- ✅ `knowledge` table (Rule, ADR, Constraint, Procedure, Pattern)
+- ✅ LLM-powered knowledge extraction from observations
+- ✅ Additional LLM providers (OpenAI-compatible, DeepSeek)
+- ~~Claude Code plugin adapter~~ — MCP Resources already solve auto-injection
+- ~~Vector index interface (sqlite-vec)~~ — FTS5 + broad concepts covers semantic gaps
 
 ### Phase 3 — Team Platform
 - ⏳ PostgreSQL backend mode
