@@ -1,6 +1,6 @@
 {
   "name": "@krab-jw/cc-mem",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Cross-session memory MCP server for AI coding assistants",
   "type": "module",
   "bin": "./dist/index.js",
