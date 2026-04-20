@@ -3,7 +3,7 @@
 > Cross-session memory server for AI coding assistants — remember context across conversations.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![npm version](https://badge.fury.io/js/cc-mem.svg)](https://www.npmjs.com/package/cc-mem)
+[![npm version](https://badge.fury.io/js/@krab-jw%2Fcc-mem.svg)](https://www.npmjs.com/package/@krab-jw/cc-mem)
 
 **cc-mem** is an open-source MCP (Model Context Protocol) server that helps AI coding assistants like Claude Code, Cursor, and Copilot remember important information across sessions. Unlike claude-mem which tightly couples to Claude Code hooks, cc-mem exposes all capabilities through standard MCP tools and resources — any MCP-compatible client can use it.
 
@@ -49,7 +49,8 @@ Add to `~/.claude/settings.json`:
 {
   "mcpServers": {
     "cc-mem": {
-      "command": "cc-mem",
+      "command": "npx",
+      "args": ["-y", "@krab-jw/cc-mem"],
       "env": {
         "CC_MEM_ZHIPU_API_KEY": "your-api-key-here"
       }
@@ -66,7 +67,8 @@ Add to Cursor MCP settings:
 {
   "mcpServers": {
     "cc-mem": {
-      "command": "cc-mem",
+      "command": "npx",
+      "args": ["-y", "@krab-jw/cc-mem"],
       "env": {
         "CC_MEM_ZHIPU_API_KEY": "your-api-key-here"
       }
@@ -83,7 +85,8 @@ Add to Cline's MCP configuration:
 {
   "mcpServers": {
     "cc-mem": {
-      "command": "cc-mem",
+      "command": "npx",
+      "args": ["-y", "@krab-jw/cc-mem"],
       "env": {
         "CC_MEM_ZHIPU_API_KEY": "your-api-key-here"
       }
@@ -99,7 +102,7 @@ Add to Cline's MCP configuration:
   "mcpServers": {
     "cc-mem": {
       "command": "npx",
-      "args": ["-y", "cc-mem"],
+      "args": ["-y", "@krab-jw/cc-mem"],
       "env": {
         "CC_MEM_ZHIPU_API_KEY": "your-api-key-here"
       }
