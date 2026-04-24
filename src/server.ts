@@ -11,6 +11,7 @@ import { deleteObservation, deleteObservationSchema } from './tools/delete-obser
 import { extractKnowledge, extractKnowledgeSchema } from './tools/extract-knowledge.js'
 import { queryKnowledge, queryKnowledgeSchema } from './tools/query-knowledge.js'
 import { deprecateKnowledge, deprecateKnowledgeSchema } from './tools/deprecate-knowledge.js'
+import { helloWorld, helloWorldSchema } from './tools/hello-world.js'
 import { USAGE_GUIDE } from './prompts/usage-guide.js'
 
 interface CreateServerInput {
@@ -67,6 +68,13 @@ export function createServer({ db, llm }: CreateServerInput): McpServer {
     'List all projects that have stored memories.',
     {},
     async () => listProjects(db)
+  )
+
+  server.tool(
+    'hello_world',
+    'Say hello! A simple greeting tool to verify cc-mem is working.',
+    helloWorldSchema.shape,
+    async (input) => helloWorld(input)
   )
 
   server.tool(
